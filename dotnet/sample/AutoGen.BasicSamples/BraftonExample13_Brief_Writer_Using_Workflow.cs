@@ -3,6 +3,7 @@
 
 using AutoGen;
 using AutoGen.BasicSample;
+using AutoGen.OpenAI;
 using FluentAssertions;
 
 
@@ -418,8 +419,17 @@ Try our bars for yourself today to see what all the hype is about.
             .RegisterPrintFormatMessageHook();
         #endregion create_admin
 
+        #region group_admin
+        var groupAdmin = new GPTAgent(
+            name: "group_admin",
+            systemMessage: "You are the admin of the group chat",
+            temperature: 0f,
+            config: gpt4Config
+            );
+        #endregion
+
         #region human_checker
-        var humanChecker = new AssistantAgent(
+        var humanChecker = new UserProxyAgent(
             name: "human_checker",
             humanInputMode: HumanInputMode.ALWAYS
             )
@@ -441,37 +451,34 @@ Try our bars for yourself today to see what all the hype is about.
         });
         var writerToScorerTransition = Transition.Create(briefWriter, briefScorer);
         var scorerToEditorTransition = Transition.Create(briefScorer, briefEditor);
-        var briefEditorToAdminTransition = Transition.Create(briefEditor, admin, async (from, to, messages) =>
-        {
-            // the last message should be from admin
-            var lastMessage = messages.Last();
-            if (lastMessage.From != admin.Name)
-            {
-                return false;
-            }
-
-            return true;
-        });
+        var briefEditorToAdminTransition = Transition.Create(briefEditor, admin);
+        var adminToBriefEditorTransition = Transition.Create(admin, briefEditor);
+        var adminToScorerTransition = Transition.Create(admin, briefScorer);
+        var adminToHumanCheckerTransition = Transition.Create(admin, humanChecker);
+        var humanToAdminTransition = Transition.Create(humanChecker, admin);
 
         var workflow = new Workflow(
                        [adminToWriterTransition,
                            writerToScorerTransition,
                            scorerToEditorTransition,
-                           briefEditorToAdminTransition
+                           briefEditorToAdminTransition,
+                           adminToScorerTransition,
+                           adminToHumanCheckerTransition,
+                           humanToAdminTransition
                            ]);
 
         #region create_group_chat
         var groupChat = new GroupChat(
-            admin: admin,
+            admin: groupAdmin,
             members: [admin, briefWriter, briefEditor, briefScorer, humanChecker],
             workflow: workflow
             );
 
-        //admin.AddInitializeMessage("Welcome to my group, work together to resolve my task. Remember <improve> means iterate on the brief based on the given feedback. When the brief looks <perfect> we are read for final checks by human_checker. The task is complete when the human_checker says so.", groupChat);
-        //briefWriter.AddInitializeMessage("I will analyze sample copy and write an advanced brief based on the sample copy. I always pass what I write to the brief_scorer.", groupChat);
-        //briefScorer.AddInitializeMessage($"I will score a brief based on how well it captures the essence of the sample copy provided. I provide suggested improvements to the brief rules to achieve a score of 10. I hand over to brief_editor if the average overall score is below {perfectBriefAvgScore}. Otherwise I hand it over to human_checker", groupChat);
-        //briefEditor.AddInitializeMessage("I will improve a brief based on the suggestions from brief_scorer and human_checker. I always give the updated brief to brief_scorer to rechecked.", groupChat);
-        //humanChecker.AddInitializeMessage("I will check the final brief to ensure it meets the required standard. I will provide feedback to the group if the brief is not perfect.", groupChat);
+        admin.AddInitializeMessage("Welcome to my group, work together to resolve my task. Remember <improve> means iterate on the brief based on the given feedback. When the brief looks <perfect> we are read for final checks by human_checker. The task is complete when the human_checker says so.", groupChat);
+        briefWriter.AddInitializeMessage("I will analyze sample copy and write an advanced brief based on the sample copy. I always pass what I write to the brief_scorer.", groupChat);
+        briefScorer.AddInitializeMessage($"I will score a brief based on how well it captures the essence of the sample copy provided. I provide suggested improvements to the brief rules to achieve a score of 10. I hand over to brief_editor if the average overall score is below {perfectBriefAvgScore}. Otherwise I hand it over to human_checker", groupChat);
+        briefEditor.AddInitializeMessage("I will improve a brief based on the suggestions from brief_scorer and human_checker. I always give the updated brief to brief_scorer to rechecked.", groupChat);
+        humanChecker.AddInitializeMessage("I will check the final brief to ensure it meets the required standard. I will provide feedback to the group if the brief is not perfect.", groupChat);
 
         var groupChatManager = new GroupChatManager(groupChat);
         #endregion create_group_chat

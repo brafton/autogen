@@ -83,8 +83,8 @@ public class ConversableAgent : IAgent
             {
                 null => llmConfig switch
                 {
-                    AzureOpenAIConfig azureConfig => new GPTAgent(this.Name!, this.systemMessage, azureConfig, temperature: config.Temperature ?? 0, maxTokens: config.MaxTokens ?? 4000),
-                    OpenAIConfig openAIConfig => new GPTAgent(this.Name!, this.systemMessage, openAIConfig, temperature: config.Temperature ?? 0, maxTokens: config.MaxTokens ?? 4000),
+                    AzureOpenAIConfig azureConfig => new GPTAgent(this.Name!, this.systemMessage, azureConfig, temperature: config.Temperature ?? 0, maxTokens: config.MaxTokens ?? 1024),
+                    OpenAIConfig openAIConfig => new GPTAgent(this.Name!, this.systemMessage, openAIConfig, temperature: config.Temperature ?? 0, maxTokens: config.MaxTokens ?? 1024),
                     _ => throw new ArgumentException($"Unsupported config type {llmConfig.GetType()}"),
                 },
                 IAgent innerAgent => innerAgent.RegisterReply(async (messages, cancellationToken) =>
