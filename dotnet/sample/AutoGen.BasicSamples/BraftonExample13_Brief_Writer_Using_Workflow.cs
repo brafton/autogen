@@ -452,26 +452,42 @@ Try our bars for yourself today to see what all the hype is about.
         var writerToScorerTransition = Transition.Create(briefWriter, briefScorer);
         var scorerToEditorTransition = Transition.Create(briefScorer, briefEditor);
         var briefEditorToAdminTransition = Transition.Create(briefEditor, admin);
+        var briefEditorToScorerTransition = Transition.Create(briefEditor, briefScorer);
         var adminToBriefEditorTransition = Transition.Create(admin, briefEditor);
         var adminToScorerTransition = Transition.Create(admin, briefScorer);
         var adminToHumanCheckerTransition = Transition.Create(admin, humanChecker);
         var humanToAdminTransition = Transition.Create(humanChecker, admin);
+        var scorerToHumanCheckerTransition = Transition.Create(briefScorer, humanChecker);
+        var briefEditorToHumanCheckerTransition = Transition.Create(briefEditor, humanChecker);
 
-        var workflow = new Workflow(
-                       [adminToWriterTransition,
-                           writerToScorerTransition,
-                           scorerToEditorTransition,
-                           briefEditorToAdminTransition,
-                           adminToScorerTransition,
-                           adminToHumanCheckerTransition,
-                           humanToAdminTransition
-                           ]);
+        var workflowWithLlmDecisions = new Workflow( // needs the init messages for the deciison making prompt.
+            [
+                adminToWriterTransition,
+                writerToScorerTransition,
+                scorerToEditorTransition,
+                briefEditorToAdminTransition,
+                adminToScorerTransition,
+                adminToHumanCheckerTransition,
+                humanToAdminTransition
+             ]);
+
+        var workflowExplicit = new Workflow(
+            [
+                adminToWriterTransition,
+                writerToScorerTransition,
+                scorerToEditorTransition,
+
+                briefEditorToHumanCheckerTransition,
+                humanToAdminTransition
+            ]);
+
+
 
         #region create_group_chat
         var groupChat = new GroupChat(
             admin: groupAdmin,
             members: [admin, briefWriter, briefEditor, briefScorer, humanChecker],
-            workflow: workflow
+            workflow: workflowExplicit
             );
 
         admin.AddInitializeMessage("Welcome to my group, work together to resolve my task. Remember <improve> means iterate on the brief based on the given feedback. When the brief looks <perfect> we are read for final checks by human_checker. The task is complete when the human_checker says so.", groupChat);
