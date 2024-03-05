@@ -14,4 +14,6 @@ public class ConversableAgentConfig
     public float? Temperature { get; set; } = 0.7f;
 
     public int? Timeout { get; set; }
+
+    public int? MaxTokens { get; set; }
 }
