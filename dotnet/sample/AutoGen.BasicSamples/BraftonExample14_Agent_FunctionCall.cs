@@ -1,23 +1,30 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // BraftonExample14_Agent_FunctionCall.cs
 
+using System.Text.Json;
 using AutoGen;
 using AutoGen.BasicSample;
 using FluentAssertions;
+using Microsoft.DotNet.Interactive.Formatting;
 
-public class SomeDataStruct
+
+public class BraftonBrief
 {
-    int Id { get; set; }
-    string Name { get; set; }
+    public string Name { get; set; }
 
-    string Title { get; set; }
+    public string Title { get; set; }
 
-    public SomeDataStruct(int id, string name, string title)
-    {
-        Id = id;
-        Name = name;
-        Title = title;
-    }
+    public string Keywords { get; set; }
+
+    public string StyleTone { get; set; }
+
+    //public BraftonBrief(string name, string title, string keywords, string styleTone)
+    //{
+    //    this.Name = name;
+    //    this.Title = title;
+    //    this.Keywords = keywords;
+    //    this.StyleTone = styleTone;
+    //}
 }
 
 /// <summary>
@@ -57,22 +64,32 @@ public partial class BraftonExample14_Agent_FunctionCall
     }
 
     /// <summary>
-    /// Coverts to a Something data structrue.
+    /// Creaets a editorial brief in Brafton brief format.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="name"></param>
-    /// <param name="title"></param>
+    /// <param name="name">name of the brief</param>
+    /// <param name="title">title of the brief</param>
+    /// <param name="keywords">keywords in the brief</param>
     /// <returns></returns>
     [Function]
-    public async Task<string> ConvertToSomething(int id, string name, string title)
+    public async Task<string> CreateBraftonBrief(string name, string title, string keywords, string styleTone)
     {
-        return ""; new SomeDataStruct(id, name, title);
+        var t = new BraftonBrief
+        {
+            Name = name,
+            Title = title,
+            Keywords = keywords,
+            StyleTone = styleTone,
+        };
+
+        var JsonStr = JsonSerializer.Serialize(t);
+        return JsonStr;
     }
 
     public static async Task RunAsync()
     {
         var instance = new BraftonExample14_Agent_FunctionCall();
-        var gpt35 = LLMConfiguration.GetOpenAIGPT3_5_Turbo();
+        //var gpt35 = LLMConfiguration.GetOpenAIGPT3_5_Turbo();
+        var gpt4 = LLMConfiguration.GetOpenAIGPT4();
 
         // AutoGen makes use of AutoGen.SourceGenerator to automatically generate FunctionDefinition and FunctionCallWrapper for you.
         // The FunctionDefinition will be created based on function signature and XML documentation.
@@ -80,47 +97,53 @@ public partial class BraftonExample14_Agent_FunctionCall
         var config = new ConversableAgentConfig
         {
             Temperature = 0,
-            ConfigList = [gpt35],
+            ConfigList = [gpt4],
             FunctionContracts = new[]
             {
                 //instance.ConcatStringFunctionContract,
                 //instance.UpperCaseFunctionContract,
-                instance.CalculateTaxFunctionContract,
-                instance.ConvertToSomethingFunctionContract,
+                //instance.CalculateTaxFunctionContract,
+                instance.CreateBraftonBriefFunctionContract,
 
             },
         };
 
         var agent = new AssistantAgent(
             name: "agent",
-            systemMessage: "You are a helpful AI assistant",
+            systemMessage: "You are a world class editorial brief writer. You present briefs in BraftonBrief format.",
             llmConfig: config,
             functionMap: new Dictionary<string, Func<string, Task<string>>>
             {
-                { nameof(ConcatString), instance.ConcatStringWrapper },
-                { nameof(UpperCase), instance.UpperCaseWrapper },
-                { nameof(CalculateTax), instance.CalculateTaxWrapper },
-                { nameof(ConvertToSomething), instance.ConvertToSomethingWrapper }
+                //{ nameof(ConcatString), instance.ConcatStringWrapper },
+                //{ nameof(UpperCase), instance.UpperCaseWrapper },
+                //{ nameof(CalculateTax), instance.CalculateTaxWrapper },
+                { nameof(CreateBraftonBrief), instance.CreateBraftonBriefWrapper }
             })
             .RegisterPrintFormatMessageHook();
 
+
+
         // talk to the assistant agent
-        var upperCase = await agent.SendAsync("convert to upper case: hello world");
-        upperCase.GetContent()?.Should().Be("HELLO WORLD");
-        upperCase.Should().BeOfType<AggregateMessage<ToolCallMessage, ToolCallResultMessage>>();
-        upperCase.GetToolCalls().Should().HaveCount(1);
-        upperCase.GetToolCalls().First().FunctionName.Should().Be(nameof(UpperCase));
 
-        var concatString = await agent.SendAsync("concatenate strings: a, b, c, d, e");
-        concatString.GetContent()?.Should().Be("a b c d e");
-        concatString.Should().BeOfType<AggregateMessage<ToolCallMessage, ToolCallResultMessage>>();
-        concatString.GetToolCalls().Should().HaveCount(1);
-        concatString.GetToolCalls().First().FunctionName.Should().Be(nameof(ConcatString));
+        var braftonBrief = await agent.SendAsync("Invent a brief for writing marketing contetn for Coca Cola.");
 
-        var calculateTax = await agent.SendAsync("calculate tax: 100, 0.1");
-        calculateTax.GetContent().Should().Be("tax is 10");
-        calculateTax.Should().BeOfType<AggregateMessage<ToolCallMessage, ToolCallResultMessage>>();
-        calculateTax.GetToolCalls().Should().HaveCount(1);
-        calculateTax.GetToolCalls().First().FunctionName.Should().Be(nameof(CalculateTax));
+
+        //var upperCase = await agent.SendAsync("convert to upper case: hello world");
+        //upperCase.GetContent()?.Should().Be("HELLO WORLD");
+        //upperCase.Should().BeOfType<AggregateMessage<ToolCallMessage, ToolCallResultMessage>>();
+        //upperCase.GetToolCalls().Should().HaveCount(1);
+        //upperCase.GetToolCalls().First().FunctionName.Should().Be(nameof(UpperCase));
+
+        //var concatString = await agent.SendAsync("concatenate strings: a, b, c, d, e");
+        //concatString.GetContent()?.Should().Be("a b c d e");
+        //concatString.Should().BeOfType<AggregateMessage<ToolCallMessage, ToolCallResultMessage>>();
+        //concatString.GetToolCalls().Should().HaveCount(1);
+        //concatString.GetToolCalls().First().FunctionName.Should().Be(nameof(ConcatString));
+
+        //var calculateTax = await agent.SendAsync("calculate tax: 100, 0.1");
+        //calculateTax.GetContent().Should().Be("tax is 10");
+        //calculateTax.Should().BeOfType<AggregateMessage<ToolCallMessage, ToolCallResultMessage>>();
+        //calculateTax.GetToolCalls().Should().HaveCount(1);
+        //calculateTax.GetToolCalls().First().FunctionName.Should().Be(nameof(CalculateTax));
     }
 }
