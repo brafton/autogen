@@ -1,14 +1,71 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
-// BraftonExample10_Brief_Writer.cs
+// BraftonExample16_Brief_Writer_Using_Workflow_FuncCall.cs
 
+using System.Text.Json;
 using AutoGen;
 using AutoGen.BasicSample;
+using AutoGen.OpenAI;
 using FluentAssertions;
 
 
 
-public partial class BraftonExample10_Brief_Writer
+public class BraftonBriefTemplate
 {
+    public string ToneOfVoice { get; set; }
+    public string WritingStyle { get; set; }
+    public string WordChoice { get; set; }
+    public string MethodOfDiscussingFacts { get; set; }
+    public string LevelOfFormality { get; set; }
+    public string SentenceStrutureAndVariety { get; set; }
+    public string OutsideSources { get; set; }
+    public string PresentationOfIdeas { get; set; }
+    public string GrammaticalPointOfView { get; set; }
+    public string ParagraphLength { get; set; }
+    public string LanguageCode { get; set; }
+}
+
+
+
+
+public partial class BraftonExample16_Brief_Writer_Using_Workflow_FuncCall
+{
+
+    /// <summary>
+    /// Generate a editorial brief in BraftonBriefTemplate format.
+    /// </summary>
+    /// <param name="toneOfVoice">Provide 3 detailed tips with instructions on how to mimic the tone of voice in the sample copy.Also, provide 3 adjectives that describe the tone of voice in the sample copy.</param>
+    /// <param name="writingStyle">Provide 3 detailed tips with instructions on how to mimic the writing style in the sample copy.Also, provide 3 adjectives that describe the writing style in the sample copy.</param>
+    /// <param name="wordChoice">Provide 3 highly detailed tips with instructions on how to mimic the word choice in the sample copy.Also, provide 3 adjectives that describe word choice in the sample copy.</param>
+    /// <param name="methodOfDiscussingFacts">Provide 3 detailed tips with instructions on how to mimic the way facts are presented in the sample copy.</param>
+    /// <param name="levelOfFormality">Provide 3 detailed tips with instructions on how to mimic the degree of formality or conversationality in the sample copy when composing a new piece of writing.Also, provide 3 adjectives that describe the level of formality or informality in the sample copy.</param>
+    /// <param name="sentenceStrutureAndVariety">Provide 3 detailed tips with instructions on how to mimic the degree of formality or conversationality in the sample copy when composing a new piece of writing.Also, provide 3 adjectives that describe the level of formality or informality in the sample copy.</param>
+    /// <param name="outsideSources">Provide 2 detailed tips with instructions on how to mimic the variety and structure of sentences in the sample copy.</param>
+    /// <param name="presentationOfIdeas">Provide 2 detailed tips with instructions on how to mimic how outside sources are incorporated and referenced in the sample copy.If there are no outside sources in teh provided sample copy then just say 'N/A - no outside sources in the sample copy'.</param>
+    /// <param name="grammaticalPointOfView">Provide 1 detailed tip with instructions on how to mimic the presentation of ideas in the sample copy.</param>
+    /// <param name="ParagraphLength">One short clear sentence.</param>
+    /// <param name="languageCode">Name the IETF language code in the sample copy.If unsure, default to en-US.</param>
+    /// <returns>BraftonBriefTemplate as JSON </returns>
+    [Function]
+    public async Task<string> GenerateBraftonBriefTemplate(string toneOfVoice, string writingStyle, string wordChoice, string methodOfDiscussingFacts, string levelOfFormality, string sentenceStrutureAndVariety, string outsideSources, string presentationOfIdeas, string grammaticalPointOfView, string ParagraphLength, string languageCode)
+    {
+        var brief = new BraftonBriefTemplate
+        {
+            ToneOfVoice = toneOfVoice,
+            WritingStyle = writingStyle,
+            WordChoice = wordChoice,
+            MethodOfDiscussingFacts = methodOfDiscussingFacts,
+            LevelOfFormality = levelOfFormality,
+            SentenceStrutureAndVariety = sentenceStrutureAndVariety,
+            OutsideSources = outsideSources,
+            PresentationOfIdeas = presentationOfIdeas,
+            GrammaticalPointOfView = grammaticalPointOfView,
+            ParagraphLength = ParagraphLength,
+            LanguageCode = languageCode
+        };
+        var jsonStr = JsonSerializer.Serialize(brief, new JsonSerializerOptions { WriteIndented = true });
+
+        return jsonStr;
+    }
 
     public static async Task RunAsync()
     {
@@ -334,13 +391,9 @@ Try our bars for yourself today to see what all the hype is about.
 
         #endregion 
 
-        var functions = new BraftonExample10_Brief_Writer();
+        var functions = new BraftonExample16_Brief_Writer_Using_Workflow_FuncCall();
 
-        // get OpenAI Key and create config
-        var openAIKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? throw new Exception("Please set OPENAI_API_KEY environment variable.");
-        var gpt3Config = LLMConfigAPI.GetOpenAIConfigList(openAIKey, new[] { "gpt-3.5-turbo" });
-        var gpt4Config = LLMConfiguration.GetOpenAIGPT4(); //LLMConfigAPI.GetOpenAIConfigList(openAIKey, new[] { "
-                                                           //gpt-4-turbo-preview" });
+        var gpt4Config = LLMConfiguration.GetOpenAIGPT4(); //LLMConfigAPI.GetOpenAIConfigList(openAIKey, new[] { "gpt-4-turbo-preview" });
 
         var perfectBriefAvgScore = "9.5";
 
@@ -359,11 +412,18 @@ Try our bars for yourself today to see what all the hype is about.
         {
             Temperature = 0.3f,
             ConfigList = [gpt4Config],
-        })
-        .RegisterPostProcess(async (_, reply, _) =>
-        {
-            return reply;
-        })
+            FunctionContracts = new[]
+            {
+
+                functions.GenerateBraftonBriefTemplateFunctionContract,
+
+            },
+        },
+        functionMap: new Dictionary<string, Func<string, Task<string>>>
+            {
+                { nameof(GenerateBraftonBriefTemplate), functions.GenerateBraftonBriefTemplateWrapper }
+            }
+        )
         .RegisterPrintFormatMessageHook();
         #endregion
 
@@ -389,32 +449,6 @@ Try our bars for yourself today to see what all the hype is about.
             Temperature = 0.3f,
             ConfigList = [gpt4Config],
         })
-        .RegisterPostProcess(async (_, reply, _) =>
-        {
-            //if (reply.Content.Length > 0 && !reply.Content.Contains("<perfect>"))
-            //{
-            //    var sb = new StringBuilder();
-
-            //    sb.AppendLine("Suggestions from brief_scorer, please iterate based on the suggestions:");
-            //    sb.AppendLine(reply.Content);
-
-            //    reply.Content = sb.ToString();
-
-            //    return reply;
-            //}
-            //else
-            //{
-            //    var sb = new StringBuilder();
-            //    sb.AppendLine(reply.Content);
-            //    var msg = new Message(Role.Assistant)
-            //    {
-            //        From = "brief_scorer",
-            //    };
-
-            //    return msg;
-            //}
-            return reply;
-        })
         .RegisterPrintFormatMessageHook();
         #endregion
 
@@ -428,10 +462,6 @@ Try our bars for yourself today to see what all the hype is about.
             {
                 Temperature = 0.3f,
                 ConfigList = [gpt4Config],
-            })
-            .RegisterPostProcess(async (_, reply, _) =>
-            {
-                return reply;
             })
             .RegisterPrintFormatMessageHook();
         #endregion 
@@ -456,16 +486,81 @@ Try our bars for yourself today to see what all the hype is about.
             .RegisterPrintFormatMessageHook();
         #endregion create_admin
 
+        #region group_admin
+        var groupAdmin = new GPTAgent(
+            name: "group_admin",
+            systemMessage: "You are the admin of the group chat",
+            temperature: 0f,
+            config: gpt4Config
+            );
+        #endregion
+
+        #region human_checker
+        var humanChecker = new UserProxyAgent(
+            name: "human_checker",
+            humanInputMode: HumanInputMode.ALWAYS
+            )
+            .RegisterPrintFormatMessageHook();
+        #endregion
+
+
+
+        var adminToWriterTransition = Transition.Create(admin, briefWriter, async (from, to, messages) =>
+        {
+            // the last message should be from admin
+            var lastMessage = messages.Last();
+            if (lastMessage.From != admin.Name)
+            {
+                return false;
+            }
+
+            return true;
+        });
+        var writerToScorerTransition = Transition.Create(briefWriter, briefScorer);
+        var scorerToEditorTransition = Transition.Create(briefScorer, briefEditor);
+        var briefEditorToAdminTransition = Transition.Create(briefEditor, admin);
+        var briefEditorToScorerTransition = Transition.Create(briefEditor, briefScorer);
+        var adminToBriefEditorTransition = Transition.Create(admin, briefEditor);
+        var adminToScorerTransition = Transition.Create(admin, briefScorer);
+        var adminToHumanCheckerTransition = Transition.Create(admin, humanChecker);
+        var humanToAdminTransition = Transition.Create(humanChecker, admin);
+        var scorerToHumanCheckerTransition = Transition.Create(briefScorer, humanChecker);
+        var briefEditorToHumanCheckerTransition = Transition.Create(briefEditor, humanChecker);
+
+        var workflowWithLlmDecisions = new Workflow( // needs the init messages for the deciison making prompt.
+            [
+                adminToWriterTransition,
+                writerToScorerTransition,
+                scorerToEditorTransition,
+                briefEditorToAdminTransition,
+                adminToScorerTransition,
+                adminToHumanCheckerTransition,
+                humanToAdminTransition
+             ]);
+
+        var workflowExplicit = new Workflow(
+            [
+                adminToWriterTransition,
+                writerToScorerTransition,
+                scorerToEditorTransition,
+                briefEditorToHumanCheckerTransition,
+                humanToAdminTransition
+            ]);
+
+
+
         #region create_group_chat
         var groupChat = new GroupChat(
-            admin: admin,
-            members: [admin, briefWriter, briefEditor, briefScorer]
+            admin: groupAdmin,
+            members: [admin, briefWriter, briefEditor, briefScorer, humanChecker],
+            workflow: workflowWithLlmDecisions
             );
 
-        admin.AddInitializeMessage("Welcome to my group, work together to resolve my task. Remember <improve> means iterate on the brief based on the given feedback. When the brief looks <perfect> we have completed the task successfully.", groupChat);
+        admin.AddInitializeMessage("Welcome to my group, work together to resolve my task. Remember <improve> means iterate on the brief based on the given feedback. When the brief looks <perfect> we are read for final checks by human_checker. The task is complete when the human_checker says so.", groupChat);
         briefWriter.AddInitializeMessage("I will analyze sample copy and write an advanced brief based on the sample copy. I always pass what I write to the brief_scorer.", groupChat);
-        briefScorer.AddInitializeMessage($"I will score a brief based on how well it captures the essence of the sample copy provided. I provide suggested improvements to the brief rules to achieve a score of 10. I hand over to brief_editor if the average overall score is below {perfectBriefAvgScore}.", groupChat);
-        briefEditor.AddInitializeMessage("I will improve a brief based on the suggestions from brief_scorer. I always give the updated brief to brief_scorer to rechecked.", groupChat);
+        briefScorer.AddInitializeMessage($"I will score a brief based on how well it captures the essence of the sample copy provided. I provide suggested improvements to the brief rules to achieve a score of 10. I hand over to brief_editor if the average overall score is below {perfectBriefAvgScore}. Otherwise I hand it over to human_checker", groupChat);
+        briefEditor.AddInitializeMessage("I will improve a brief based on the suggestions from brief_scorer and human_checker. I always give the updated brief to brief_scorer to rechecked.", groupChat);
+        humanChecker.AddInitializeMessage("I will check the final brief to ensure it meets the required standard. I will provide feedback to the group if the brief is not perfect.", groupChat);
 
         var groupChatManager = new GroupChatManager(groupChat);
         #endregion create_group_chat
@@ -478,7 +573,7 @@ Try our bars for yourself today to see what all the hype is about.
         var p2 = $@"Write a brief based on the sample copy below delimited by <sample-copy> tags.
                 <sample-copy>{fluffyBunny[0]}</sample-copy>   
                 ";
-        var conversationHistory = await admin.InitiateChatAsync(groupChatManager, p2, maxRound: 15);
+        var conversationHistory = await groupAdmin.InitiateChatAsync(groupChatManager, p2, maxRound: 15);
 
         // the last message is from admin, which is the termination message
         var lastMessage = conversationHistory.Last();

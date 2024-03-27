@@ -17,7 +17,7 @@ internal static class LLMConfiguration
     public static OpenAIConfig GetOpenAIGPT4()
     {
         var openAIKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? throw new Exception("Please set OPENAI_API_KEY environment variable.");
-        var modelId = "gpt-4";
+        var modelId = "gpt-4-turbo-preview";
 
         return new OpenAIConfig(openAIKey, modelId);
     }

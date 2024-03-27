@@ -5,6 +5,7 @@ using System.Text.Json;
 using AutoGen;
 using AutoGen.BasicSample;
 using FluentAssertions;
+using Microsoft.CodeAnalysis.VisualBasic.Syntax;
 using Microsoft.DotNet.Interactive.Formatting;
 
 
@@ -64,6 +65,31 @@ public partial class BraftonExample14_Agent_FunctionCall
     }
 
     /// <summary>
+    /// mathamatical sum of numbers `a` and `b` 
+    /// </summary>
+    /// <param name="a">a number</param>
+    /// <param name="b">another number</param>
+    /// <returns>the sum of numbers a and b</returns>
+    [Function]
+    public async Task<string> add(int a, int b)
+    {
+        return (a + b).ToString();
+    }
+
+    /// <summary>
+    /// mathematical multiplication of two number `a` and `b`
+    /// </summary>
+    /// <param name="a">a number</param>
+    /// <param name="b">another number</param>
+    /// <returns>multiplication of a and b</returns>
+    [Function]
+    public async Task<string> multi(int a, int b)
+    {
+        return (a * b).ToString();
+    }
+
+
+    /// <summary>
     /// Creaets a editorial brief in Brafton brief format.
     /// </summary>
     /// <param name="name">name of the brief</param>
@@ -100,32 +126,58 @@ public partial class BraftonExample14_Agent_FunctionCall
             ConfigList = [gpt4],
             FunctionContracts = new[]
             {
-                //instance.ConcatStringFunctionContract,
-                //instance.UpperCaseFunctionContract,
-                //instance.CalculateTaxFunctionContract,
-                instance.CreateBraftonBriefFunctionContract,
-
+                //instance.CreateBraftonBriefFunctionContract,
+                instance.addFunctionContract,
+                instance.multiFunctionContract
             },
         };
 
         var agent = new AssistantAgent(
             name: "agent",
-            systemMessage: "You are a world class editorial brief writer. You present briefs in BraftonBrief format.",
+            systemMessage: "You are a helpful AI Assistant",
             llmConfig: config,
             functionMap: new Dictionary<string, Func<string, Task<string>>>
             {
                 //{ nameof(ConcatString), instance.ConcatStringWrapper },
                 //{ nameof(UpperCase), instance.UpperCaseWrapper },
                 //{ nameof(CalculateTax), instance.CalculateTaxWrapper },
-                { nameof(CreateBraftonBrief), instance.CreateBraftonBriefWrapper }
+                //{ nameof(CreateBraftonBrief), instance.CreateBraftonBriefWrapper }
+                { nameof(add), instance.addWrapper },
+                { nameof(multi), instance.multiWrapper }
+            })
+            .RegisterPostProcess(async (_, reply, _) =>
+            {
+                if (reply.GetContent()?.ToLower().Contains("terminate") is true)
+                {
+                    return new TextMessage(Role.Assistant, GroupChatExtension.TERMINATE, from: reply.From);
+                }
+                return reply;
             })
             .RegisterPrintFormatMessageHook();
+
+        var user = new UserProxyAgent(
+                       name: "user",
+                                  humanInputMode: HumanInputMode.NEVER)
+            .RegisterPrintFormatMessageHook();
+
+        var groupAdmin = new AssistantAgent(name: "groupAdmin", systemMessage: "You are the admin of the group chat");
+
+        var groupChat = new GroupChat(
+                admin: groupAdmin,
+                members: [agent, user]
+                );
+
+        agent.AddInitializeMessage("I'm the assistant.", groupChat);
+        user.AddInitializeMessage("I'm the user.", groupChat);
+
+        var groupChatManager = new GroupChatManager(groupChat);
+        var conversationHistory = await user.InitiateChatAsync(groupChatManager, "Add 1 and 3 then multiply the result by 4", maxRound: 15);
 
 
 
         // talk to the assistant agent
 
-        var braftonBrief = await agent.SendAsync("Invent a brief for writing marketing contetn for Coca Cola.");
+        //var braftonBrief = await agent.SendAsync("Add 1 and 3 then multiply the result by 4");
 
 
         //var upperCase = await agent.SendAsync("convert to upper case: hello world");
